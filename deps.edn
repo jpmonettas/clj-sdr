@@ -1,1 +1,2 @@
-{:deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}}}
+{:deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
+        org.clojure/core.async {:mvn/version "1.9.808-alpha1"}}}
