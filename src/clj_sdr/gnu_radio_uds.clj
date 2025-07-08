@@ -1,5 +1,6 @@
 (ns clj-sdr.gnu-radio-uds
-  (:require [clojure.core.async :as async])
+  (:require [clojure.core.async :as async]
+            [clj-sdr.types :refer [make-timed-iq-sample timed-iq-sample-complex]])
   (:import [java.net Socket SocketAddress StandardProtocolFamily]
            [java.nio ByteBuffer ByteOrder]
            [java.nio.channels ServerSocketChannel SocketChannel]
@@ -7,6 +8,7 @@
            [java.time Instant Duration]
            [java.lang System]
            [java.net UnixDomainSocketAddress]
+           [clj_sdr.types TimedIQSample]
            [org.apache.commons.math3.complex Complex]))
 
 (set! *warn-on-reflection* true)
@@ -22,9 +24,9 @@
         dispatch-complex-samples (fn [^ByteBuffer buf]
                                    (loop [samples (transient [])]
                                      (if (>= (.remaining buf) sample-size-bytes)
-                                       (let [real (.getFloat buf)
-                                             imag (.getFloat buf)]
-                                         (recur (conj! samples (Complex. real imag))))
+                                       (let [I (.getFloat buf)
+                                             Q (.getFloat buf)]
+                                         (recur (conj! samples (make-timed-iq-sample I Q (System/nanoTime)))))
                                        (async/>!! dst-ch (persistent! samples)))))]
     (doto (Thread.
            (fn []
@@ -48,9 +50,12 @@
            (fn []
              (while (not (Thread/interrupted))
                (let [samples-frame (async/<!! src-ch)]
-                 (doseq [^Complex iq-sample samples-frame]
-                   (.putFloat buffer (.getReal iq-sample))
-                   (.putFloat buffer (.getImaginary iq-sample)))
+                 (doseq [^TimedIQSample t-iq-sample samples-frame]
+                   (let [^Complex iq-sample (timed-iq-sample-complex t-iq-sample)
+                         I (.getReal iq-sample)
+                         Q (.getImaginary iq-sample)]
+                     (.putFloat buffer I)
+                     (.putFloat buffer Q)))
                  (.flip buffer)
                  (.write ch buffer)
                  (.clear buffer)))))
