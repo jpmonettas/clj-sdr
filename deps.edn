@@ -3,4 +3,8 @@
  :aliases
  {:dev
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
-              "-Dflowstorm.callTreeUpdate=false"]}}}
+              "-Dflowstorm.callTreeUpdate=false"
+              "-Dflowstorm.uiTimeoutMillis=10000"
+              "-Dclojure.storm.instrumentSkipPrefixes=clj-sdr.types"]}
+  :no-inst
+  {:jvm-opts ["-Dclojure.storm.instrumentEnable=false"]}}}

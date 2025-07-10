@@ -1,7 +1,7 @@
 (ns clj-sdr.fs-data-windows
   (:require [flow-storm.runtime.values :refer [register-data-aspect-extractor]]
             [flow-storm.debugger.ui.data-windows.visualizers :refer [register-visualizer add-default-visualizer]]
-            [clj-sdr.types :refer [timed-iq-sample? timed-iq-sample-complex timed-iq-sample-timestamp]])
+            [clj-sdr.types :refer [timed-iq-sample? sample-timestamp sample-complex]])
   (:import [org.apache.commons.math3.complex Complex]
            [javafx.scene.canvas Canvas GraphicsContext]
            [clj_sdr.types TimedIQSample]
@@ -17,10 +17,10 @@
                        (-> x first timed-iq-sample?)))
   :extractor (fn [v _]
                {:iq-samples/frame (mapv (fn [^TimedIQSample tiqs]
-                                          (let [^Complex c (timed-iq-sample-complex tiqs)]
+                                          (let [^Complex c (sample-complex tiqs)]
                                             {:I (.getReal c)
                                              :Q (.getImaginary c)
-                                             :ts (timed-iq-sample-timestamp tiqs)}))
+                                             :ts (sample-timestamp tiqs)}))
                                         v)})})
 
 (register-visualizer
@@ -45,7 +45,7 @@
                        _ (.setFill gc Color/MAGENTA)]
 
                    (loop [i 0
-                          x 0]
+                          x 0.0]
                      (when (< i samples-cnt)
                        (let [{:keys [I Q]} (get frame i)
                              Iy (* v-scale I)

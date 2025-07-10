@@ -1,11 +1,10 @@
 (ns clj-sdr.gnu-radio-uds
   (:require [clojure.core.async :as async]
-            [clj-sdr.types :refer [make-timed-iq-sample timed-iq-sample-complex]])
-  (:import [java.net Socket SocketAddress StandardProtocolFamily]
+            [clj-sdr.types :refer [make-timed-iq-sample sample-complex]])
+  (:import [java.net StandardProtocolFamily]
            [java.nio ByteBuffer ByteOrder]
            [java.nio.channels ServerSocketChannel SocketChannel]
            [java.nio.file Files Paths]
-           [java.time Instant Duration]
            [java.lang System]
            [java.net UnixDomainSocketAddress]
            [clj_sdr.types TimedIQSample]
@@ -21,7 +20,7 @@
   (log "Got an IN conn")
   (let [^ByteBuffer buffer (doto (ByteBuffer/allocateDirect (* 2 frame-samples-size))
                              (.order ByteOrder/LITTLE_ENDIAN))
-        dispatch-complex-samples (fn [^ByteBuffer buf]
+        dispatch-complex-samples (fn dispatch-complex-samples [^ByteBuffer buf]
                                    (loop [samples (transient [])]
                                      (if (>= (.remaining buf) sample-size-bytes)
                                        (let [I (.getFloat buf)
@@ -29,14 +28,16 @@
                                          (recur (conj! samples (make-timed-iq-sample I Q (System/nanoTime)))))
                                        (async/>!! dst-ch (persistent! samples)))))]
     (doto (Thread.
-           (fn []
+           (fn connection-loop []
              (try
-               (while (not (Thread/interrupted))
-                 (let [read-bytes-cnt (.read ch buffer)]
-                   (when (pos? read-bytes-cnt)
-                     (.flip buffer)
-                     (dispatch-complex-samples buffer)
-                     (.clear buffer))))
+               (while
+                   (let [read-bytes-cnt (.read ch buffer)]
+                     (when (and (not (Thread/interrupted))
+                                (not (= -1 read-bytes-cnt))) ;; -1 means the conexion was closed
+                       (when (pos? read-bytes-cnt)
+                         (.flip buffer)
+                         (dispatch-complex-samples buffer)
+                         (.clear buffer)))))
                (catch Exception e
                  (.printStackTrace e)))
              (log "Reader thread stopped.")))
@@ -44,21 +45,26 @@
 
 (defn- on-out-conn [^SocketChannel ch src-ch {:keys [frame-samples-size]}]
   (log "Got an OUT conn")
-  (let [^ByteBuffer buffer (doto (ByteBuffer/allocateDirect (* 2 frame-samples-size))
+  (let [buff-size (* 2 frame-samples-size)
+        ^ByteBuffer buffer (doto (ByteBuffer/allocateDirect buff-size)
                              (.order ByteOrder/LITTLE_ENDIAN))]
     (doto (Thread.
-           (fn []
-             (while (not (Thread/interrupted))
-               (let [samples-frame (async/<!! src-ch)]
-                 (doseq [^TimedIQSample t-iq-sample samples-frame]
-                   (let [^Complex iq-sample (timed-iq-sample-complex t-iq-sample)
-                         I (.getReal iq-sample)
-                         Q (.getImaginary iq-sample)]
-                     (.putFloat buffer I)
-                     (.putFloat buffer Q)))
-                 (.flip buffer)
-                 (.write ch buffer)
-                 (.clear buffer)))))
+           (fn out-conn-writer []
+             (loop []
+               (when (not (Thread/interrupted))
+                 (when-let [samples-frame (async/<!! src-ch)]
+                   (doseq [^TimedIQSample t-iq-sample samples-frame]
+                     (let [^Complex iq-sample (sample-complex t-iq-sample)
+                           I (.getReal iq-sample)
+                           Q (.getImaginary iq-sample)]
+                       (.putFloat buffer I)
+                       (.putFloat buffer Q)
+
+                       (when (zero? (.remaining buffer))
+                         (.flip buffer)
+                         (.write ch buffer)
+                         (.clear buffer))))
+                   (recur))))))
       (.start))))
 
 (defn gnuradio-uds-block [socket-path opts]
