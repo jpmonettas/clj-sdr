@@ -1,10 +1,13 @@
-{:deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
+{:paths ["src" "dev"]
+ :deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
         org.clojure/core.async {:mvn/version "1.9.808-alpha1"}}
  :aliases
  {:dev
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
               "-Dflowstorm.callTreeUpdate=false"
-              "-Dflowstorm.uiTimeoutMillis=10000"
-              "-Dclojure.storm.instrumentSkipPrefixes=clj-sdr.types"]}
+              "-Dflowstorm.uiTimeoutMillis=30000"
+              ;; don't instrument clj-sdr.gnu-radio-uds because it is time sensitive
+              "-Dclojure.storm.instrumentSkipPrefixes=clj-sdr.gnu-radio-uds,clj-sdr.file-reader"
+              ]}
   :no-inst
   {:jvm-opts ["-Dclojure.storm.instrumentEnable=false"]}}}
