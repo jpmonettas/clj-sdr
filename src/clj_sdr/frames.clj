@@ -1,10 +1,29 @@
-(ns clj-sdr.frames)
+(ns clj-sdr.frames
+  (:require [flow-storm.runtime.values :as rt-values])
+  (:import [org.apache.commons.math3.complex Complex]))
 
-(defn make-frame [frame-type samp-rate samples]
-  {:frame/type frame-type
-   :frame/samp-rate samp-rate
-   :frame/samples samples})
+(defprotocol AmplitudeP
+  (amplitude [_]))
+
+(extend-protocol AmplitudeP
+  Complex
+  (amplitude [^Complex c] (.abs c))
+
+  Double
+  (amplitude [d] d)
+
+  Float
+  (amplitude [f] f))
+
+(defrecord SamplesFrame [samp-rate samples]
+  rt-values/ScopeFrameP
+  (frame-samp-rate [_] samp-rate)
+  (frame-samples [_] samples))
+
+(defn make-frame
+  ([] (make-frame 1 []))
+  ([samp-rate samples]
+   (->SamplesFrame samp-rate samples)))
 
 (defn frame? [x]
-  (and (map? x)
-       (contains? x :frame/type)))
+  (instance? SamplesFrame x))

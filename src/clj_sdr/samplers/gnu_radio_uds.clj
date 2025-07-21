@@ -46,7 +46,7 @@
              (try
                (while (not (Thread/interrupted))
                  (let [frame-samples (read-next-frame)]
-                   (async/>!! dst-ch (make-frame :complex samp-rate frame-samples))))
+                   (async/>!! dst-ch (make-frame samp-rate frame-samples))))
                (catch Exception e
                  (.printStackTrace e)))
              (log "Reader thread stopped.")))
@@ -60,7 +60,7 @@
     (doto (Thread.
            (fn out-conn-writer []
              (while (not (Thread/interrupted))
-               (when-let [{:keys [frame/samples]} (async/<!! src-ch)]
+               (when-let [{:keys [samples]} (async/<!! src-ch)]
                  (doseq [^Complex sample samples]
                    (let [I (.getReal sample)
                          Q (.getImaginary sample)]
@@ -75,7 +75,7 @@
 (defn gnuradio-uds-block [socket-path opts]
   (log "Creating UDS socket at " socket-path)
   (try
-    (let [in-ch (async/chan) ;; at 200k samples/s this should be able to buffer a couple of seconds of 4096 samples frame
+    (let [in-ch (async/chan)
           out-ch (async/chan)
           sock-path (Paths/get socket-path (make-array String 0))
           ssch (ServerSocketChannel/open StandardProtocolFamily/UNIX)

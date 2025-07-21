@@ -23,19 +23,19 @@
           replay-thread (doto (Thread.
                                (fn []
                                  (try
-                                   (loop [samples (transient [])]
-                                     (when (not (Thread/interrupted))
+                                   (while (not (Thread/interrupted))
+                                     (loop [samples (transient [])]
                                        (if (= frame-samples-size (count samples))
-                                         (let [frame (make-frame :complex
-                                                                        samp-rate
-                                                                        (persistent! samples))]
+                                         (let [frame (make-frame samp-rate
+                                                                 (persistent! samples))]
                                            (async/>!! in-ch frame)
                                            (recur (transient [])))
                                          (when (>= (.remaining buffer) sample-size-bytes)
                                            (let [I (.getFloat buffer)
                                                  Q (.getFloat buffer)
                                                  c (Complex. I Q)]
-                                             (recur (conj! samples c)))))))
+                                             (recur (conj! samples c))))))
+                                     (.rewind buffer))
                                    (log "Replaying done.")
                                    (catch Exception e
                                      (.printStackTrace e)))
