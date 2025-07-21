@@ -1,10 +1,13 @@
-(ns clj-sdr.frames)
+(ns clj-sdr.frames
+  (:require [flow-storm.runtime.values :as rt-values]))
+
+(defrecord SamplesFrame [frame-type samp-rate samples]
+  rt-values/ScopeFrameP
+  (frame-samp-rate [_] samp-rate)
+  (frame-samples [_] samples))
 
 (defn make-frame [frame-type samp-rate samples]
-  {:frame/type frame-type
-   :frame/samp-rate samp-rate
-   :frame/samples samples})
+  (->SamplesFrame frame-type samp-rate samples))
 
 (defn frame? [x]
-  (and (map? x)
-       (contains? x :frame/type)))
+  (instance? SamplesFrame x))

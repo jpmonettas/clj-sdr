@@ -60,7 +60,7 @@
     (doto (Thread.
            (fn out-conn-writer []
              (while (not (Thread/interrupted))
-               (when-let [{:keys [frame/samples]} (async/<!! src-ch)]
+               (when-let [{:keys [samples] :as p} (async/<!! src-ch)]
                  (doseq [^Complex sample samples]
                    (let [I (.getReal sample)
                          Q (.getImaginary sample)]

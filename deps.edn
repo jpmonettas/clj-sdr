@@ -1,5 +1,6 @@
 {:paths ["src" "dev"]
  :deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
+        org.suskalo/coffi {:mvn/version "1.0.615"}
         org.clojure/core.async {:mvn/version "1.9.808-alpha1"}}
  :aliases
  {:dev
@@ -7,7 +8,9 @@
               "-Dflowstorm.callTreeUpdate=false"
               "-Dflowstorm.uiTimeoutMillis=30000"
               ;; don't instrument clj-sdr.gnu-radio-uds because it is time sensitive
-              "-Dclojure.storm.instrumentSkipPrefixes=clj-sdr.gnu-radio-uds,clj-sdr.file-reader"
+              ;; "-Dclojure.storm.instrumentSkipPrefixes=clj-sdr.gnu-radio-uds,clj-sdr.file-reader"
+              "-Djava.library.path=/usr/lib/x86_64-linux-gnu/"
+              "--enable-native-access=ALL-UNNAMED"
               ]}
   :no-inst
   {:jvm-opts ["-Dclojure.storm.instrumentEnable=false"]}}}

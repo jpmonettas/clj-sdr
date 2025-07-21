@@ -1,7 +1,9 @@
 (ns clj-sdr.main
   (:require [clojure.core.async.flow :as flow]
             [clojure.core.async :as async]
+            [flow-storm.api :as fsa]
             [clj-sdr.samplers.gnu-radio-uds :refer [gnuradio-uds-block]]
+            [clj-sdr.samplers.hackrf :as hackrf]
             [clj-sdr.samplers.file-replay :refer [file-replay-block]]
             [clj-sdr.frames :refer [make-frame]])
   (:import [org.apache.commons.math3.complex Complex]))
@@ -56,7 +58,7 @@
        :outs {:samples-frames-out "A vector of samples containing the filtered IQ signal"}})
   ([_] {})
   ([state _] state)
-  ([state _ch-id {:keys [frame/samples frame/samp-rate]}]
+  ([state _ch-id {:keys [samples samp-rate]}]
    (let [filtered-samples (fir-filter-samples coeffs samples)]
      [state [[:samples-frames-out [(make-frame :complex samp-rate filtered-samples)]]]])))
 
@@ -65,7 +67,7 @@
        :outs {:samples-frames-out "A vector of samples containing an amiplitude demodulated signal"}})
   ([_] {})
   ([state _] state)
-  ([state _ch-id {:keys [frame/samples frame/samp-rate]}]
+  ([state _ch-id {:keys [samples samp-rate]}]
    (let [demod-samples (into [] (map (fn [^Complex s] (.abs s))) samples)]
      [state [[:samples-frames-out [(make-frame :real samp-rate demod-samples)]]]])))
 
@@ -86,13 +88,13 @@
         :curr-burst-samples (transient [])
         :burst-frames []})
   ([state _] state)
-  ([state _ch-id {:keys [frame/samples frame/samp-rate] :as frame}]
+  ([state _ch-id {:keys [samples samp-rate] :as frame}]
    (let [nanos-per-sample (/ 1e9 samp-rate)
-         samples-amplitude (case (:frame/type frame)
+         samples-amplitude (case (:frame-type frame)
                              :real    identity
                              :complex Complex/.abs)
-         amplitude-level-threshold 0.1
-         activity-nanos-threshold 7e6 ;; 10ms between bursts, so lets separate bursts when more than 7ms low
+         amplitude-level-threshold 1.4
+         activity-nanos-threshold 500e3 ;; 10ms between bursts, so lets separate bursts when more than 7ms low
          {:keys [burst-frames] :as state'}
          (reduce (fn [{:keys [curr-burst-samples last-sample-nanos last-activity-nanos] :as st} sample]
                    (let [amplitude (samples-amplitude sample)
@@ -116,7 +118,7 @@
                        ;; if we reach here and we have a burst with some samples, emit it
                        (pos? (count curr-burst-samples))
                        (-> st
-                           (update :burst-frames conj (make-frame (:frame/type frame)
+                           (update :burst-frames conj (make-frame (:frame-type frame)
                                                                   samp-rate
                                                                   (trim-burst-samples (persistent! curr-burst-samples)
                                                                                           amplitude-level-threshold)))
@@ -157,7 +159,7 @@
                          true (assoc :samp-cnt (mod (inc samp-cnt) samples-per-symb))))))
                  {:samp-cnt 0
                   :decoded-packet nil}
-                 (:frame/samples samples-frame))]
+                 (:samples samples-frame))]
      [state [[:decoded-packets-out [decoded-packet]]]])))
 
 (defn gnu-radio-sender
@@ -181,13 +183,17 @@
 
         {grc-in-ch :in-ch grc-out-ch :out-ch grc-stop :stop-fn}
         (gnuradio-uds-block "/tmp/clj_sdr.sock"
-                            {:frame-samples-size frame-samples-size
+                            {:frame-samples-size hackrf/frame-size
                              :samp-rate samp-rate})
 
-        {fr-in-ch :in-ch fr-stop :stop-fn}
-        (file-replay-block "/home/jmonetta/my-projects/clj-sdr/gnu_radio/remote_200k.samples"
-                           {:frame-samples-size frame-samples-size
-                            :samp-rate samp-rate})
+        {hackrf-in-ch :in-ch hackrf-stop :stop-fn}
+        (hackrf/hackrf-block {:freq-hz 629700000})
+
+
+        ;; {fr-in-ch :in-ch fr-stop :stop-fn}
+        ;; (file-replay-block "/home/jmonetta/my-projects/clj-sdr/gnu_radio/remote_200k.samples"
+        ;;                    {:frame-samples-size frame-samples-size
+        ;;                     :samp-rate samp-rate})
 
         system-graph (flow/create-flow
                       {:procs
@@ -205,18 +211,35 @@
 
                               #_[[:frame-source :samples-frames-out] [:gnu-radio-sender :samples-frame-in]]]})]
     (alter-var-root #'stop-all (constantly (fn []
-                                             (when fr-stop (fr-stop))
+                                             #_(when fr-stop (fr-stop))
                                              (when grc-stop (grc-stop))
+                                             (hackrf-stop)
                                              (flow/stop system-graph))))
 
     ;; frame-source will take from `in-ch`
     #_(alter-var-root #'in-ch (constantly grc-in-ch))
-    (alter-var-root #'in-ch (constantly fr-in-ch))
-    (alter-var-root #'out-ch (constantly grc-out-ch))
+    #_(alter-var-root #'in-ch (constantly fr-in-ch))
+    (alter-var-root #'in-ch (constantly hackrf-in-ch))
+    #_(alter-var-root #'out-ch (constantly grc-out-ch))
 
-    #_(async/pipeline 1 gr-out-ch (map identity) gr-in-ch)
+
+    #_(async/pipeline 1 out-ch (map identity) in-ch)
     #_(async/pipeline 1 gr-out-ch (map (fn [frame] (update frame :frame/samples lpf-1k))) gr-in-ch)
 
-    (flow/start  system-graph)
-    (flow/resume system-graph)
+
+    (doto (Thread.
+           (fn []
+             (loop [first? true]
+               (when-not (Thread/interrupted)
+                 (when-let [frame (async/<!! in-ch)]
+
+                   (if first?
+                     (fsa/data-window-push-val :scope frame)
+
+                     (fsa/data-window-val-update :scope frame))
+
+                   (recur false))))))
+      (.start))
+    #_(flow/start  system-graph)
+    #_(flow/resume system-graph)
     ))
