@@ -1,7 +1,7 @@
 (ns fs-data-windows
   (:require [flow-storm.runtime.values :as rt-values :refer [register-data-aspect-extractor]]
             [flow-storm.debugger.ui.data-windows.visualizers :refer [register-visualizer add-default-visualizer]]
-            [clj-sdr.frames :refer [frame?]])
+            [radio-snake.frames :refer [frame?]])
   (:import [org.apache.commons.math3.complex Complex]
            [javafx.scene.canvas Canvas GraphicsContext]
            [javafx.scene.paint Color]

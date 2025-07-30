@@ -1,12 +1,12 @@
-(ns clj-sdr.main
+(ns radio-snake.main
   (:require [clojure.core.async.flow :as flow]
             [clojure.core.async :as async]
             [flow-storm.api :as fsa]
-            [clj-sdr.samplers.gnu-radio-uds :refer [gnuradio-uds-block]]
-            [clj-sdr.samplers.hackrf :as hackrf]
-            [clj-sdr.samplers.file-replay :refer [file-replay-block]]
-            [clj-sdr.frames :refer [make-frame]]
-            [clj-sdr.frames :as frames])
+            [radio-snake.samplers.gnu-radio-uds :refer [gnuradio-uds-block]]
+            [radio-snake.samplers.hackrf :as hackrf]
+            [radio-snake.samplers.file-replay :refer [file-replay-block]]
+            [radio-snake.frames :refer [make-frame]]
+            [radio-snake.frames :as frames])
   (:import [org.apache.commons.math3.complex Complex]
            [clojure.lang PersistentVector PersistentVector$TransientVector]
            [javafx.stage Stage]
@@ -480,7 +480,7 @@
 
 
         ;; {fr-in-ch :in-ch fr-stop :stop-fn}
-        ;; (file-replay-block "/home/jmonetta/my-projects/clj-sdr/gnu_radio/remote_200k.samples"
+        ;; (file-replay-block "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
         ;;                    {:frame-samples-size frame-samples-size
         ;;                     :samp-rate samp-rate})
 

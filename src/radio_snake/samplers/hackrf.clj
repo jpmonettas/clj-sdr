@@ -1,6 +1,6 @@
-(ns clj-sdr.samplers.hackrf
+(ns radio-snake.samplers.hackrf
   (:require [clojure.core.async :as async]
-            [clj-sdr.frames :refer [make-frame]]
+            [radio-snake.frames :refer [make-frame]]
             [coffi.mem :as mem :refer [defalias]]
             [coffi.ffi :as ffi :refer [defcfn]])
   (:import [org.apache.commons.math3.complex Complex]

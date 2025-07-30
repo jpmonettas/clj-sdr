@@ -1,7 +1,7 @@
-(ns clj-sdr.samplers.file-replay
+(ns radio-snake.samplers.file-replay
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async]
-            [clj-sdr.frames :refer [make-frame]])
+            [radio-snake.frames :refer [make-frame]])
   (:import [java.nio.file Files]
            [java.nio ByteBuffer ByteOrder]
            [org.apache.commons.math3.complex Complex]))

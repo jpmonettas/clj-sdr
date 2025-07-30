@@ -1,4 +1,4 @@
-(ns clj-sdr.frames
+(ns radio-snake.frames
   (:require [flow-storm.runtime.values :as rt-values])
   (:import [org.apache.commons.math3.complex Complex]))
 

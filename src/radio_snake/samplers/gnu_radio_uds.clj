@@ -1,6 +1,6 @@
-(ns clj-sdr.samplers.gnu-radio-uds
+(ns radio-snake.samplers.gnu-radio-uds
   (:require [clojure.core.async :as async]
-            [clj-sdr.frames :refer [make-frame]])
+            [radio-snake.frames :refer [make-frame]])
   (:import [java.net StandardProtocolFamily]
            [java.nio ByteBuffer ByteOrder]
            [java.nio.channels ServerSocketChannel SocketChannel]

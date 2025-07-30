@@ -1,6 +1,6 @@
 (ns dev
   (:require [fs-data-windows]
-            [clj-sdr.main :as main]))
+            [radio-snake.main :as main]))
 
 (comment
 
@@ -22,11 +22,11 @@
 
   (require '[clojure.java.io :as io])
 
-  (io/input-stream "/home/jmonetta/my-projects/clj-sdr/gnu_radio/remote_200k.samples")
+  (io/input-stream "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples")
   (import '[java.nio.file Files])
   (import '[java.nio ByteBuffer ByteOrder])
 
-  (def bb (-> (io/file "/home/jmonetta/my-projects/clj-sdr/gnu_radio/remote_200k.samples")
+  (def bb (-> (io/file "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples")
               .toPath
               Files/readAllBytes
               ByteBuffer/wrap))
