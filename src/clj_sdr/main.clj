@@ -8,7 +8,13 @@
             [clj-sdr.frames :refer [make-frame]]
             [clj-sdr.frames :as frames])
   (:import [org.apache.commons.math3.complex Complex]
-           [clojure.lang PersistentVector PersistentVector$TransientVector]))
+           [clojure.lang PersistentVector PersistentVector$TransientVector]
+           [javafx.stage Stage]
+           [javafx.scene Scene Node]
+           [javafx.scene.layout Pane]
+           [javafx.scene.canvas Canvas GraphicsContext]
+           [javafx.application Platform]
+           [javafx.scene.paint Color]))
 
 
 (set! *warn-on-reflection* true)
@@ -23,7 +29,7 @@
 
 (defn frame-source
   ([] {:outs {:samples-frames-out "A samples frame"}})
-  ([_] {::flow/in-ports  {:samples-frames-in in-ch}})
+  ([{:keys [frames-ch]}] {::flow/in-ports  {:samples-frames-in frames-ch}})
   ([state _] state)
   ([state _ch-id samples-frame]
    [state [[:samples-frames-out [samples-frame]]]]))
@@ -188,7 +194,8 @@
                  (:samples samples-frame))
          header-length 59
          tail-length 11]
-     (if (> (count decoded-packet) (+ header-length tail-length 1))
+     (if (and (<= (- (count decoded-packet) header-length tail-length) 63)
+              (>= (count decoded-packet) (+ header-length tail-length 1)))
        (let [decoded-long (Long/parseUnsignedLong decoded-packet header-length (- (count decoded-packet) tail-length) 2)]
          (case decoded-long
            323010 [state [[:decoded-button-out [:button-a]]]]
@@ -211,6 +218,14 @@
    (println thing)
    nil))
 
+(defn world-renderer
+  ([] {:ins {:snake-worlds-in ""}})
+  ([{:keys [redraw-game-fn]}] {:redraw-game redraw-game-fn})
+  ([state _] state)
+  ([{:keys [redraw-game] :as state} _ch-id snake-world]
+   (redraw-game snake-world)
+   state))
+
 (defn oscilloscope-sender
   ([] {:ins {:samples-frames-in "A samples frame"}})
   ([{:keys [scope-id]}] {:scope-id scope-id})
@@ -222,7 +237,232 @@
    (fsa/data-window-val-update scope-id samples-frame)
    state))
 
-(defn -main [& _args]
+(defn init-toolkit []
+  (let [p (promise)]
+    (try
+      (Platform/startup (fn [] (deliver p true)))
+      (catch Exception _ (deliver p false)))
+    (if @p
+      (println "JavaFX toolkit initialized")
+      (println "JavaFX toolkit already initialized"))))
+
+(def window-size 1000)
+(def cell-size 20)
+(def world-size (/ window-size cell-size))
+
+(defn redraw-game-state [^GraphicsContext gc {:keys [food snake]}]
+  ;; draw snake
+  (.setFill gc Color/GREEN)
+
+  (doseq [[s-cell-x s-cell-y] snake]
+    (let [x (* cell-size s-cell-x)
+          y (* cell-size s-cell-y)]
+      (.fillRect gc x y cell-size cell-size)))
+
+  ;; draw food
+  (when-let [[food-x food-y] food]
+    (.setFill gc Color/RED)
+    (let [x (* cell-size food-x)
+          y (* cell-size food-y)]
+      (.fillRect gc x y cell-size cell-size))))
+
+(defn create-snake-window []
+  (init-toolkit)
+  (Platform/setImplicitExit false)
+  (let [result (promise)]
+    (Platform/runLater
+     (fn []
+       (try
+         (let [stage (doto (Stage.)
+                       (.setTitle "Radio Snake"))
+               canvas (Canvas. window-size window-size)
+               gc (.getGraphicsContext2D canvas)
+               scene (Scene. (Pane. (into-array Node [canvas]))
+                             window-size
+                             window-size)]
+
+           (.setScene stage scene)
+
+           #_(.setOnCloseRequest stage (event-handler [_]))
+
+           (-> stage .show)
+
+           (deliver result
+                    {:redraw-game (fn [new-state]
+                                    (Platform/runLater
+                                     (fn []
+                                       (.clearRect gc 0 0 window-size window-size)
+                                       (redraw-game-state gc new-state))))
+                     :close-window (fn [] (Platform/runLater #(.close stage)))}))
+
+         (catch Exception e
+           (.printStackTrace e)))))
+    @result))
+
+(defn initial-world []
+  {:snake [[20 20] [21 20]]
+   :food  [10 10]
+   :dir :up
+   :ticks-counter 0
+   :last-button-tick -1})
+
+(defn check-collision [{:keys [snake] :as state}]
+  (if (or
+       ;; into itself
+       (->> snake
+            frequencies
+            vals
+            (apply max)
+            (not= 1))
+       ;; into wall
+       (some (fn [[cx cy]]
+               (not (and (<= 0 cx world-size)
+                         (<= 0 cy world-size))))
+             snake))
+    (initial-world)
+    state))
+
+(defn maybe-add-food [{:keys [food snake] :as state}]
+  (if food
+    state
+
+    (let [food [(rand-int world-size) (rand-int world-size)]]
+      (if (contains? (into #{} snake) food)
+        (maybe-add-food state) ;; try again if we generated food on a snake cell
+        (assoc state :food food)))))
+
+(defn update-snake [{:keys [dir food snake] :as state}]
+  (let [[hx hy] (get snake (dec (count snake)))
+        new-head (case dir
+                   :up   [hx       (dec hy)]
+                   :down [hx       (inc hy)]
+                   :left [(dec hx)       hy]
+                   :right[(inc hx)       hy])]
+    (if (= new-head food)
+      ;; hit food
+      (-> state
+           (update :snake conj new-head)
+           (assoc :food nil))
+
+      ;; else
+      (-> state
+          (update :snake conj new-head)
+          (update :snake subvec 1)))))
+
+(defn snake-runner
+  ([] {:ins {:buttons-in ""}
+       :outs {:snake-worlds-out ""}})
+  ([{:keys [ticks-ch]}]
+   (-> (initial-world)
+       (assoc ::flow/in-ports {:ticks-in ticks-ch})))
+  ([state _] state)
+  ([{:keys [ticks-counter last-button-tick] :as state} ch-id msg]
+   (let [world-cells-width 100
+         state' (case ch-id
+                  :ticks-in
+                  (-> state
+                      maybe-add-food
+                      update-snake
+                      check-collision
+                      (update :ticks-counter inc))
+
+                  :buttons-in
+                  (let [button msg]
+                    (if-not (> ticks-counter last-button-tick)
+                      state ;; "debouncing"
+
+                      (-> state
+                          (assoc :last-button-tick ticks-counter)
+                          (update :dir (case button
+                                           :button-a {:up    :left ;counter-clockwise
+                                                      :left  :down
+                                                      :down  :right
+                                                      :right :up}
+                                           :button-b {:up    :right ;clockwise
+                                                      :right :down
+                                                      :down  :left
+                                                      :left  :up}))))))]
+     [state' [[:snake-worlds-out [state']]]])))
+
+(comment
+  (let [{:keys [redraw-game close-window]} (create-snake-window)]
+    (def redraw-game redraw-game)
+    (def close-window close-window))
+
+  (redraw-game (-> (initial-world)
+                   (snake-runner :ticks-in :tick)
+                   first
+                   (snake-runner :ticks-in :tick)
+                   first))
+  (close-window)
+
+  )
+
+(defn rf-snake-main []
+  (let [hrf-samp-rate 2e6
+        frame-samples-size (* 3 4096)
+        *running (atom true)
+
+        {hackrf-in-ch :in-ch hackrf-stop :stop-fn}
+        (hackrf/hackrf-block {:freq-hz 629700000
+                              :samp-rate hrf-samp-rate
+                              :lna-gain 24
+                              :vga-gain 20
+                              :start? true})
+
+        ticks-ch (async/chan)
+        _ (async/io-thread
+           (while @*running
+             (async/>!! ticks-ch :tick)
+             (Thread/sleep 500)))
+
+        {:keys [redraw-game close-window]} (create-snake-window)
+
+        system-graph (flow/create-flow
+                      {:procs
+                       {:frame-source {:proc (flow/process #'frame-source {:workload :io})
+                                       :args {:frames-ch hackrf-in-ch}}
+                        :burst-splitter {:proc (flow/process #'burst-splitter {:workload :compute})}
+                        :downsampler {:proc (flow/process downsampler {:workload :compute})
+                                      :args {:src-samp-rate hrf-samp-rate
+                                             :dst-samp-rate 200e3}}
+                        :am-demod {:proc (flow/process #'am-demod {:workload :compute})}
+                        :normalizer {:proc (flow/process #'normalizer {:workload :compute})}
+                        :ask-bit-decoder {:proc (flow/process #'ask-bit-decoder {:workload :compute})}
+                        :snake-runner {:proc (flow/process #'snake-runner {:workload :compute})
+                                       :args {:ticks-ch ticks-ch}}
+                        :world-renderer {:proc (flow/process #'world-renderer {:workload :io})
+                                         :args {:redraw-game-fn redraw-game}}
+                        #_#_:scope-1 {:proc (flow/process oscilloscope-sender {:workload :io})
+                                  :args {:scope-id :scope-1}}
+                        #_#_:scope-2 {:proc (flow/process oscilloscope-sender {:workload :io})
+                                  :args {:scope-id :scope-2}}}
+
+                       :conns [[[:frame-source :samples-frames-out] [:downsampler :samples-frames-in]]
+                               [[:downsampler :samples-frames-out] [:am-demod :samples-frames-in]]
+                               [[:am-demod :samples-frames-out] [:burst-splitter :samples-frames-in]]
+                               [[:burst-splitter :samples-frames-out] [:normalizer :samples-frames-in]]
+                               [[:normalizer :samples-frames-out] [:ask-bit-decoder :samples-frames-in]]
+
+                               [[:ask-bit-decoder :decoded-button-out] [:snake-runner :buttons-in]]
+                               [[:snake-runner :snake-worlds-out] [:world-renderer :snake-worlds-in]]
+
+                               #_[[:normalizer :samples-frames-out] [:scope-2 :samples-frames-in]]
+                               #_[[:am-demod :samples-frames-out] [:scope-1 :samples-frames-in]]
+                               #_[[:frame-source :samples-frames-out] [:gnu-radio-sender :samples-frames-in]]]})]
+
+    (flow/start  system-graph)
+    (flow/resume system-graph)
+
+    (alter-var-root #'stop-all
+                      (constantly
+                       (fn []
+                         (when hackrf-stop (hackrf-stop))
+                         (flow/stop system-graph)
+                         (reset! *running false)
+                         (close-window))))))
+
+#_(defn -main [& _args]
   (let [hrf-samp-rate 2e6
         frame-samples-size (* 3 4096)
 
