@@ -7,8 +7,7 @@
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
               "-Dflowstorm.callTreeUpdate=false"
               "-Dflowstorm.uiTimeoutMillis=30000"
-              ;; don't instrument radio-snake.gnu-radio-uds because it is time sensitive
-              ;; "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.gnu-radio-uds,radio-snake.file-reader"
+              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay"
               "-Djava.library.path=/usr/lib/x86_64-linux-gnu/"
               "--enable-native-access=ALL-UNNAMED"
               ]}

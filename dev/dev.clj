@@ -4,11 +4,27 @@
 
 (comment
 
-  (main/rf-snake-main)
-  (main/stop-all)
+  (do
+    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
+      (def start start-fn)
+      (def stop stop-fn ))
 
+    (start))
+
+  (do
+    (let [{:keys [start-fn stop-fn]} (main/gnu-radio)]
+      (def start start-fn)
+      (def stop stop-fn ))
+
+    (start))
+
+  (stop)
   )
 
+(defn -main [& args]
+  (let [{:keys [start-fn stop-fn]} (main/rf-snake-main {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
+    (start-fn)
+    stop-fn ))
 (comment
   (require '[clj-async-profiler.core :as prof])
   (prof/serve-ui 8081)

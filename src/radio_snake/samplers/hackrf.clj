@@ -122,29 +122,28 @@
   ""
   hackrf_exit [] ::mem/int)
 
-(defn hackrf-block [{:keys [freq-hz samp-rate lna-gain vga-gain start?]}]
-  (when start?
-    (hackrf-init)
+(defn hackrf-block [{:keys [freq-hz samp-rate lna-gain vga-gain]}]
+  (hackrf-init)
 
-    (let [device-buf (mem/alloc-instance ::mem/pointer)
-          _ (hackrf-open device-buf)
-          device (mem/read-address device-buf)
-          bbf (hackrf-compute-baseband-filter-bw samp-rate)
-          _ (hackrf-set-baseband-filter-bandwidth device bbf)
-          _ (hackrf-set-freq device freq-hz)
-          _ (hackrf-set-sample-rate device samp-rate)
-          _ (hackrf-set-lna-gain device lna-gain)
-          _ (hackrf-set-vga-gain device vga-gain)
-          f-ptr (mem/serialize rx-callback
-                               [::ffi/fn [::mem/pointer] ::mem/int]
-                               (mem/global-arena))]
-      (alter-var-root #'curr-samp-rate (constantly samp-rate))
-      (hackrf-start-rx device f-ptr mem/null)
+  (let [device-buf (mem/alloc-instance ::mem/pointer)
+        _ (hackrf-open device-buf)
+        device (mem/read-address device-buf)
+        bbf (hackrf-compute-baseband-filter-bw samp-rate)
+        _ (hackrf-set-baseband-filter-bandwidth device bbf)
+        _ (hackrf-set-freq device freq-hz)
+        _ (hackrf-set-sample-rate device samp-rate)
+        _ (hackrf-set-lna-gain device lna-gain)
+        _ (hackrf-set-vga-gain device vga-gain)
+        f-ptr (mem/serialize rx-callback
+                             [::ffi/fn [::mem/pointer] ::mem/int]
+                             (mem/global-arena))]
+    (alter-var-root #'curr-samp-rate (constantly samp-rate))
 
-      (println (format "Hackrf RX started. Freq %s Hz, Samp rate: %s Hz" freq-hz samp-rate))
-
-      {:in-ch dst-ch
-       :stop-fn (fn []
-                  (hackrf-stop-rx device)
-                  (hackrf-close device)
-                  (hackrf-exit))})))
+    {:in-ch dst-ch
+     :stop-fn (fn []
+                (hackrf-stop-rx device)
+                (hackrf-close device)
+                (hackrf-exit))
+     :start-fn (fn []
+                 (hackrf-start-rx device f-ptr mem/null)
+                 (println (format "Hackrf RX started. Freq %s Hz, Samp rate: %s Hz" freq-hz samp-rate)))}))
