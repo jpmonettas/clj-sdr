@@ -39,3 +39,8 @@
                (convolution acc i))
              (transient [])
              (range 0 (- (count samples) conv-window-size))))))
+
+(defn lerp
+  "Linearly interpolates between a and b by factor t (0.0 to 1.0)."
+  [a b t]
+  (+ a (* (- b a) t)))

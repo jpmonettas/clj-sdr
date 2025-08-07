@@ -1,6 +1,7 @@
 (ns fs-data-windows
   (:require [flow-storm.runtime.values :as rt-values :refer [register-data-aspect-extractor]]
             [flow-storm.debugger.ui.data-windows.visualizers :refer [register-visualizer add-default-visualizer]]
+            [flow-storm.debugger.ui.components :as ui]
             [radio-snake.frames :refer [frame?]])
   (:import [org.apache.commons.math3.complex Complex]
            [javafx.scene.canvas Canvas GraphicsContext]
@@ -10,63 +11,46 @@
 
 (set! *warn-on-reflection* true)
 
-#_(register-data-aspect-extractor
- {:id :iq-samples-frame
-  :pred (fn [x _] (frame? x))
-  :extractor (fn iq-samples-frame-extractor [frame _]
-               frame)})
+(register-data-aspect-extractor
+ {:id :complex
+  :pred (fn [x _] (instance? Complex x))
+  :extractor (fn iq-samples-frame-extractor [^Complex c _]
+               {:real (.getReal c)
+                :img (.getImaginary c)})})
 
-#_(register-visualizer
- {:id :iq-samples-frame
-  :pred (fn [val] (contains? (:flow-storm.runtime.values/kinds val) :iq-samples-frame))
-  :on-create (fn iq-samples-frame-create [{:keys [frame-type samples]}]
+(register-visualizer
+ {:id :complex
+  :pred (fn [val] (contains? (:flow-storm.runtime.values/kinds val) :complex))
+  :on-create (fn complex-create [{:keys [real img]}]
                (try
-                 (let [top-bottom-margins 25
-                       samples-cnt (count samples)
-                       canvas-width 600
+                 (let [canvas-width 200
                        canvas-height 200
                        canvas (Canvas. canvas-width canvas-height)
                        ^GraphicsContext gc (.getGraphicsContext2D canvas)
-                       x-step (double (/ canvas-width samples-cnt))
+
+                       mid-x (/ canvas-width 2)
                        mid-y (/ canvas-height 2)
-                       sample-parts (fn [s]
-                                      (case frame-type
-                                        :complex [(Complex/.getReal s) (Complex/.getImaginary s)]
-                                        :real    [s 0]))
-                       mins (->> (into [] (mapcat sample-parts) samples) (apply min))
-                       _ (tap> [:mins mins])
-                       maxs (->> (into [] (mapcat sample-parts) samples) (apply max))
-                       _ (tap> [:maxs maxs])
-                       sample-range (* 2 (max (Math/abs ^double maxs) (Math/abs ^double mins)))
-                       v-scale (/ (- canvas-height (* 2 top-bottom-margins))
-                                  (if (zero? sample-range) 1 sample-range))
-                       _ (.setFont gc (Font. "Arial" 20))
-                       _ (.setFill gc Color/MAGENTA)]
 
-                   (loop [i 0
-                          x 0.0]
-                     (when (< i (dec samples-cnt))
-                       (let [x-next (+ x x-step)
-                             [I Q]  (sample-parts (get samples i))
-                             [I-next Q-next] (sample-parts (get samples (inc i)))
-                             I-y (- mid-y (* v-scale I))
-                             Q-y (- mid-y (* v-scale Q))
-                             I-next-y (- mid-y (* v-scale I-next))
-                             Q-next-y (- mid-y (* v-scale Q-next))]
-                         (.setStroke  gc Color/BLUE)
-                         (.strokeLine gc x I-y x-next I-next-y)
-                         (.setStroke gc Color/GREEN)
-                         (.strokeLine gc x Q-y x-next Q-next-y)
-                         (recur (inc i)
-                                x-next))))
+                       vec-x (+ mid-x (* (/ canvas-width 2) real))
+                       vec-y (- mid-y (* (/ canvas-width 2) img))]
 
-                   {:fx/node canvas})
+                   (.clearRect  gc 0 0 canvas-width canvas-height)
+                   (.setStroke  gc Color/GRAY)
+                   (.strokeLine gc 0 mid-y canvas-width mid-y) ;; horiz
+                   (.strokeLine gc mid-x 0 mid-x canvas-height) ;; vert
+                   (.strokeOval gc 0 0 canvas-width canvas-height)
+                   (.setStroke  gc Color/MAGENTA)
+                   (.strokeLine gc mid-x mid-y vec-x vec-y) ;; complex vec
+                   (.setFill  gc Color/BLUE)
+                   (.fillOval gc (- vec-x 4) (- vec-y 4) 8 8)
+                   {:fx/node (ui/border-pane
+                              :top    (ui/label :text (format "Real: %s, Img: %s" (float real) (float img)))
+                              :center canvas)})
                  (catch Exception e
                    (.printStackTrace e)
                    {:fx/node (Label. (.getMessage e))})))})
 
-#_(add-default-visualizer (fn [val-data] (contains? (:flow-storm.runtime.values/kinds val-data) :iq-samples-frame)) :iq-samples-frame)
-#_(add-default-visualizer (fn [val-data] (contains? (:flow-storm.runtime.values/kinds val-data) :iq-samples-frame)) :iq-samples-frame)
+(add-default-visualizer (fn [val-data] (contains? (:flow-storm.runtime.values/kinds val-data) :complex)) :complex)
 
 (extend-protocol rt-values/ScopeFrameSampleP
   Complex

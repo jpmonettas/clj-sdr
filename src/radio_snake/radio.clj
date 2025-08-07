@@ -49,7 +49,7 @@
   ([_] {})
   ([state _] state)
   ([state _ch-id {:keys [samples samp-rate]}]
-   (let [demod-samples (into [] (map frames/amplitude) samples)]
+   (let [demod-samples (into [] (map (fn [s] (frames/amplitude s))) samples)]
      [state [[:samples-frames-out [(frames/make-frame samp-rate demod-samples)]]]])))
 
 (defn normalizer
@@ -172,7 +172,7 @@
        [state []]))))
 
 (defn gnu-radio-sender
-  ([] {:ins {:samples-frames-in "A vector of TimedIQSamples samples"}})
+  ([] {:ins {:samples-frames-in "SamplesFrame objects containing IQ samples"}})
   ([{:keys [grc-out-ch]}] {::flow/out-ports {:samples-frames-out grc-out-ch}})
   ([state _] state)
   ([state _ch-id samples-frame]
