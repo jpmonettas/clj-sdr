@@ -12,31 +12,30 @@
 
 (defn fir-filter [coeffs samples]
   (let [[add multiply zero] (let [s (first samples)]
-                          (if (instance? Complex s)
-                            [(fn [^Complex a ^Complex b] (.add a b))
-                             (fn [^Complex a ^Double b] (.multiply a b))
-                             (Complex. 0 0)]
-                            [unchecked-add
-                             unchecked-multiply
-                             0]))]
-    (let [conv-window-size (count coeffs)
-                                convolution (fn [fst i]
-                                              (let [w-end (unchecked-add i conv-window-size)]
-                                                (loop [conv-i 0
-                                                       ii i
-                                                       fst fst
-                                                       acc zero]
-                                                  (if (< conv-i conv-window-size)
-                                                    (let [coef (aget ^doubles coeffs conv-i)
-                                                          sample (.get ^PersistentVector samples ii)
-                                                          acc (add acc (multiply sample coef))]
-                                                      (recur (unchecked-inc conv-i)
-                                                             (unchecked-inc ii)
-                                                             fst
-                                                             acc))
-                                                    (conj! fst acc)))))]
-                            (persistent!
-                             (reduce (fn [acc i]
-                                       (convolution acc i))
-                                     (transient [])
-                                     (range 0 (- (count samples) conv-window-size)))))))
+                              (if (instance? Complex s)
+                                [(fn [^Complex a ^Complex b] (.add a b))
+                                 (fn [^Complex a ^Double b] (.multiply a b))
+                                 (Complex. 0 0)]
+                                [unchecked-add
+                                 unchecked-multiply
+                                 0]))
+        conv-window-size (count coeffs)
+        convolution (fn [fst i]
+                      (loop [conv-i 0
+                             ii i
+                             fst fst
+                             acc zero]
+                        (if (< conv-i conv-window-size)
+                          (let [coef (aget ^doubles coeffs conv-i)
+                                sample (.get ^PersistentVector samples ii)
+                                acc (add acc (multiply sample coef))]
+                            (recur (unchecked-inc conv-i)
+                                   (unchecked-inc ii)
+                                   fst
+                                   acc))
+                          (conj! fst acc))))]
+    (persistent!
+     (reduce (fn [acc i]
+               (convolution acc i))
+             (transient [])
+             (range 0 (- (count samples) conv-window-size))))))

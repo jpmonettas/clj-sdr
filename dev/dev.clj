@@ -6,7 +6,12 @@
 (comment
 
   (do
-    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main nil #_{:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
+    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main
+                                      {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
+                                       :scopes #{:frame-source
+                                                 :am-demod
+                                                 :burst-splitter
+                                                 :normalizer}})]
       (def start start-fn)
       (def stop stop-fn ))
 
