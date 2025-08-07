@@ -1,11 +1,12 @@
 (ns dev
   (:require [fs-data-windows]
-            [radio-snake.main :as main]))
+            [radio-snake.main :as main]
+            [radio-snake.frames :as frames]))
 
 (comment
 
   (do
-    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
+    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main nil #_{:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
       (def start start-fn)
       (def stop stop-fn ))
 
@@ -47,5 +48,7 @@
               Files/readAllBytes
               ByteBuffer/wrap))
   (.order bb ByteOrder/LITTLE_ENDIAN)
+
+  (frames/make-frame)
 
   )

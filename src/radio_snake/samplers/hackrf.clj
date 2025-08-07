@@ -8,6 +8,8 @@
 
 (set! *warn-on-reflection* true)
 
+(defonce *rx-running (atom false))
+
 (ffi/load-system-library "hackrf")
 
 (defalias ::mem/uint64_t ::mem/long)
@@ -105,8 +107,6 @@
   ""
   hackrf_start_rx [::mem/pointer ::mem/pointer ::mem/pointer] ::mem/int)
 
-
-
 #_:clj-kondo/ignore
 (defcfn hackrf-stop-rx
   ""
@@ -141,9 +141,12 @@
 
     {:in-ch dst-ch
      :stop-fn (fn []
-                (hackrf-stop-rx device)
-                (hackrf-close device)
-                (hackrf-exit))
+                (when @*rx-running
+                  (reset! *rx-running false)
+                  (hackrf-stop-rx device)
+                  (hackrf-close device)
+                  (hackrf-exit)))
      :start-fn (fn []
                  (hackrf-start-rx device f-ptr mem/null)
+                 (reset! *rx-running true)
                  (println (format "Hackrf RX started. Freq %s Hz, Samp rate: %s Hz" freq-hz samp-rate)))}))

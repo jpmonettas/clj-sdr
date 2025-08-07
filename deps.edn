@@ -6,8 +6,8 @@
  {:dev
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
               "-Dflowstorm.callTreeUpdate=false"
-              "-Dflowstorm.uiTimeoutMillis=30000"
-              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay"
+              "-Dflowstorm.uiTimeoutMillis=100000"
+              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay,radio-snake.frames"
               "-Djava.library.path=/usr/lib/x86_64-linux-gnu/"
               "--enable-native-access=ALL-UNNAMED"
               ]}

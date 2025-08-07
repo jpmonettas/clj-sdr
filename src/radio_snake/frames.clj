@@ -27,3 +27,6 @@
 
 (defn frame? [x]
   (instance? SamplesFrame x))
+
+(defmethod print-method SamplesFrame [^SamplesFrame sf ^java.io.Writer w]
+  (.write w (str "Samp rate: " (rt-values/frame-samp-rate sf) ", Samples: " (count (rt-values/frame-samples sf)))))
