@@ -107,12 +107,12 @@
                         [[[:frame-source :samples-frames-out]   [:downsampler :samples-frames-in]]
                          [[:downsampler :samples-frames-out]    [:am-demod :samples-frames-in]]])
 
-                true (into [[[:am-demod :samples-frames-out]       [:burst-splitter :samples-frames-in]]
-                            [[:burst-splitter :samples-frames-out] [:normalizer :samples-frames-in]]
-                            [[:normalizer :samples-frames-out]     [:ask-bit-decoder :samples-frames-in]]
-
-                            [[:ask-bit-decoder :decoded-button-out] [:snake-runner :buttons-in]]
-                            [[:snake-runner :snake-worlds-out]      [:world-renderer :snake-worlds-in]]])
+                true (into [[[:am-demod :samples-frames-out]              [:burst-splitter :samples-frames-in]]
+                            [[:burst-splitter :samples-frames-out]        [:normalizer :samples-frames-in]]
+                            [[:normalizer :samples-frames-out]            [:ask-bit-decoder :samples-frames-in]]
+                            [[:ask-bit-decoder :bin-strings-out]          [:remote-button-decoder :bin-strings-in]]
+                            [[:remote-button-decoder :decoded-button-out] [:snake-runner :buttons-in]]
+                            [[:snake-runner :snake-worlds-out]            [:world-renderer :snake-worlds-in]]])
                 (scopes :frame-source) (into [[[:frame-source :samples-frames-out] [:frame-source-scope :samples-frames-in]]])
                 (scopes :am-demod) (into [[[:am-demod :samples-frames-out] [:am-demod-scope :samples-frames-in]]])
                 (scopes :burst-splitter) (into [[[:burst-splitter :samples-frames-out] [:burst-splitter-scope :samples-frames-in]]])
@@ -143,6 +143,7 @@
                                                      :dst-samp-rate dst-samp-rate}}
                                 :am-demod {:proc (flow/process #'radio/am-demod {:workload :compute})}
                                 :normalizer {:proc (flow/process #'radio/normalizer {:workload :compute})}
+                                :remote-button-decoder {:proc (flow/process #'radio/remote-button-decoder {:workload :compute})}
                                 :ask-bit-decoder {:proc (flow/process #'radio/ask-bit-decoder {:workload :compute})}
                                 :fir-filter {:proc (flow/process radio/fir-filter {:workload :compute})}
                                 :snake-runner {:proc (flow/process #'snake-runner {:workload :compute})

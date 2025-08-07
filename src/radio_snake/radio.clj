@@ -11,15 +11,15 @@
 (set! *warn-on-reflection* true)
 
 (defn frame-source
-  ([] {:outs {:samples-frames-out "A samples frame"}})
+  ([] {:outs {:samples-frames-out "SamplesFrame objects containing IQ samples readed from the frames-ch input chanel"}})
   ([{:keys [frames-ch]}] {::flow/in-ports  {:samples-frames-in frames-ch}})
   ([state _] state)
   ([state _ch-id samples-frame]
    [state [[:samples-frames-out [samples-frame]]]]))
 
 (defn fir-filter
-  ([] {:ins {:samples-frames-in ["A vector of samples containing an IQ signal"]}
-       :outs {:samples-frames-out "A vector of samples containing the filtered IQ signal"}})
+  ([] {:ins {:samples-frames-in ["SamplesFrame objects containing IQ samples"]}
+       :outs {:samples-frames-out "SamplesFrame objects containing IQ samples with the signal filtered"}})
   ([_] {})
   ([state _] state)
   ([state _ch-id {:keys [samples samp-rate]}]
@@ -27,8 +27,8 @@
      [state [[:samples-frames-out [(frames/make-frame samp-rate filtered-samples)]]]])))
 
 (defn downsampler
-  ([] {:ins {:samples-frames-in ["A vector of samples containing an IQ signal"]}
-       :outs {:samples-frames-out "A vector of samples containing the downsampled IQ signal"}})
+  ([] {:ins {:samples-frames-in ["SamplesFrame objects containing IQ samples"]}
+       :outs {:samples-frames-out "Downsampled SamplesFrame objects"}})
   ([{:keys [src-samp-rate dst-samp-rate]}] {:dst-samp-rate dst-samp-rate
                                             :src-samp-rate src-samp-rate})
   ([state _] state)
@@ -44,8 +44,8 @@
      [state [[:samples-frames-out [(frames/make-frame dst-samp-rate downsampled-samples)]]]])))
 
 (defn am-demod
-  ([] {:ins {:samples-frames-in ["A vector of samples containing the AM modulated signal"]}
-       :outs {:samples-frames-out "A vector of samples containing an amiplitude demodulated signal"}})
+  ([] {:ins {:samples-frames-in ["SamplesFrame objects containing the AM modulated IQ signal"]}
+       :outs {:samples-frames-out "SamplesFrame objects containing an amiplitude demodulated signal"}})
   ([_] {})
   ([state _] state)
   ([state _ch-id {:keys [samples samp-rate]}]
@@ -53,8 +53,8 @@
      [state [[:samples-frames-out [(frames/make-frame samp-rate demod-samples)]]]])))
 
 (defn normalizer
-  ([] {:ins {:samples-frames-in ["A vector double of samples "]}
-       :outs {:samples-frames-out "A vector doubof samples normalized to 0-1"}})
+  ([] {:ins {:samples-frames-in ["SamplesFrame objects containing an amiplitude demodulated signal"]}
+       :outs {:samples-frames-out "SamplesFrame objects containing the signal normalized to 0-1 range"}})
   ([_] {})
   ([state _] state)
   ([state _ch-id {:keys [samples samp-rate]}]
@@ -75,8 +75,8 @@
     (subvec samples 0 last-activity-idx)))
 
 (defn burst-splitter
-  ([] {:ins {:samples-frames-in "A vector of samples"}
-       :outs {:samples-frames-out "A vector of samples containing a burst packet"}})
+  ([] {:ins {:samples-frames-in "SamplesFrame objects"}
+       :outs {:samples-frames-out "SamplesFrame objects of signal bursts"}})
   ([_] {:last-activity-nanos nil
         :last-sample-nanos 0
         :curr-burst-samples (transient [])
@@ -127,8 +127,8 @@
        [state' []]))))
 
 (defn ask-bit-decoder
-  ([] {:ins  {:samples-frames-in "A frame of samples"}
-       :outs {:decoded-button-out "A string of decoded Amplitude Shift Keying for the samples frame"}})
+  ([] {:ins  {:samples-frames-in "SamplesFrame objects of demodulated signal bursts"}
+       :outs {:bin-strings-out "Strings of decoded ASK (Amplitude Shift Keying) for the frame"}})
   ([_] nil)
   ([state _] state)
   ([state _ch-id samples-frame]
@@ -151,11 +151,20 @@
                  {:samp-cnt 0
                   :decoded-packet nil}
                  (:samples samples-frame))
-         header-length 59
+         ]
+     [state {:bin-strings-out [decoded-packet]}])))
+
+(defn remote-button-decoder
+  ([] {:ins  {:bin-strings-in "Strings representing a binary reading"}
+       :outs {:decoded-button-out "Keywords representing the pressed buttons"}})
+  ([_] nil)
+  ([state _] state)
+  ([state _ch-id bin-str]
+   (let [header-length 59
          tail-length 11]
-     (if (and (<= (- (count decoded-packet) header-length tail-length) 63)
-              (>= (count decoded-packet) (+ header-length tail-length 1)))
-       (let [decoded-long (Long/parseUnsignedLong decoded-packet header-length (- (count decoded-packet) tail-length) 2)]
+     (if (and (<= (- (count bin-str) header-length tail-length) 63)
+              (>= (count bin-str) (+ header-length tail-length 1)))
+       (let [decoded-long (Long/parseUnsignedLong bin-str header-length (- (count bin-str) tail-length) 2)]
          (case decoded-long
            323010 [state [[:decoded-button-out [:button-a]]]]
            322842 [state [[:decoded-button-out [:button-b]]]]
