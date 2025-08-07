@@ -19,7 +19,7 @@
 
   (do
     (let [{:keys [start-fn stop-fn]} (main/rf-snake-main
-                                      {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
+                                      {;; :mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
                                        :scopes #{#_:frame-source
                                                  #_:am-demod
                                                  #_:burst-splitter

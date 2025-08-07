@@ -1,6 +1,8 @@
 (ns radio-snake.snake
+  (:require [clojure.java.io :as io])
   (:import [javafx.stage Stage]
            [javafx.scene Scene Node]
+           [javafx.scene.image Image]
            [javafx.scene.layout Pane]
            [javafx.scene.canvas Canvas GraphicsContext]
            [javafx.application Platform]
@@ -17,25 +19,35 @@
       (println "JavaFX toolkit initialized")
       (println "JavaFX toolkit already initialized"))))
 
-(def window-size 1000)
+(def window-size 500)
 (def cell-size 20)
 (def world-size (/ window-size cell-size))
+(def grass-img (Image. (io/input-stream (io/resource "grass.jpg"))))
 
 (defn redraw-game-state [^GraphicsContext gc {:keys [food snake]}]
-  ;; draw snake
-  (.setFill gc Color/GREEN)
+  (let [head-pos (dec (count snake))
+        [head-x head-y] (get snake head-pos)
+        snake-tail (subvec snake 0 head-pos)]
 
-  (doseq [[s-cell-x s-cell-y] snake]
-    (let [x (* cell-size s-cell-x)
-          y (* cell-size s-cell-y)]
-      (.fillRect gc x y cell-size cell-size)))
+    ;; draw background
+    (.drawImage gc grass-img 0.0 0.0 ^double window-size ^double window-size)
 
-  ;; draw food
-  (when-let [[food-x food-y] food]
-    (.setFill gc Color/RED)
-    (let [x (* cell-size food-x)
-          y (* cell-size food-y)]
-      (.fillRect gc x y cell-size cell-size))))
+    ;; draw head
+    (.setFill gc Color/BLUE)
+    (.fillOval gc (- (* cell-size head-x) 5) (- (* cell-size head-y) 5) (+ cell-size 10) (+ cell-size 10))
+
+    ;; draw tail
+    (doseq [[s-cell-x s-cell-y] snake-tail]
+      (let [x (* cell-size s-cell-x)
+            y (* cell-size s-cell-y)]
+        (.fillRect gc x y cell-size cell-size)))
+
+    ;; draw food
+    (when-let [[food-x food-y] food]
+      (.setFill gc Color/RED)
+      (let [x (* cell-size food-x)
+            y (* cell-size food-y)]
+        (.fillRect gc x y cell-size cell-size)))))
 
 (defn create-snake-window []
   (init-toolkit)
@@ -71,7 +83,7 @@
     @result))
 
 (def initial-world
-  {:snake [[20 20] [20 19]]
+  {:snake [[20 22] [20 21] [20 20] [20 19]]
    :food  [10 10]
    :dir :up
    :last-button-press-nanos 0})

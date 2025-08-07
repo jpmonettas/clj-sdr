@@ -1,4 +1,4 @@
-{:paths ["src" "dev"]
+{:paths ["src" "resources"]
  :deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
         org.suskalo/coffi {:mvn/version "1.0.615"}
         org.clojure/core.async {:mvn/version "1.9.808-alpha1"}
@@ -14,6 +14,7 @@
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
               "-Dflowstorm.callTreeUpdate=false"
               "-Dflowstorm.uiTimeoutMillis=100000"
-              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay,radio-snake.frames"]}
+              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay,radio-snake.frames"]
+   :extra-paths ["dev"]}
   :no-inst
   {:jvm-opts ["-Dclojure.storm.instrumentEnable=false"]}}}
