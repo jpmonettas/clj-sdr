@@ -1,17 +1,29 @@
 (ns dev
   (:require [fs-data-windows]
             [radio-snake.main :as main]
-            [radio-snake.frames :as frames]))
+            [radio-snake.frames :as frames]
+            [flow-storm.runtime.values :as rt-values])
+  (:import [radio_snake.frames SamplesFrame]))
+
+(extend-protocol rt-values/ScopeFrameP
+
+  SamplesFrame
+  (frame-samp-rate [fr] (:samp-rate fr))
+  (frame-samples [fr] (:samples fr)))
+
+(defmethod print-method SamplesFrame [^SamplesFrame sf ^java.io.Writer w]
+  (.write w (str "Samp rate: " (rt-values/frame-samp-rate sf) ", Samples: " (count (rt-values/frame-samples sf)))))
+
 
 (comment
 
   (do
     (let [{:keys [start-fn stop-fn]} (main/rf-snake-main
-                                      {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
-                                       :scopes #{:frame-source
+                                      {;; :mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
+                                       :scopes #{#_:frame-source
                                                  :am-demod
-                                                 :burst-splitter
-                                                 :normalizer}})]
+                                                 #_:burst-splitter
+                                                 #_:normalizer}})]
       (def start start-fn)
       (def stop stop-fn ))
 
@@ -27,10 +39,6 @@
   (stop)
   )
 
-(defn -main [& args]
-  (let [{:keys [start-fn stop-fn]} (main/rf-snake-main {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"})]
-    (start-fn)
-    stop-fn ))
 (comment
   (require '[clj-async-profiler.core :as prof])
   (prof/serve-ui 8081)

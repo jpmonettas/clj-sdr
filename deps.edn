@@ -1,15 +1,19 @@
 {:paths ["src" "dev"]
  :deps {org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
         org.suskalo/coffi {:mvn/version "1.0.615"}
-        org.clojure/core.async {:mvn/version "1.9.808-alpha1"}}
+        org.clojure/core.async {:mvn/version "1.9.808-alpha1"}
+        org.openjfx/javafx-controls {:mvn/version "21.0.4-ea+1"}
+        org.openjfx/javafx-base {:mvn/version "21.0.4-ea+1"}
+        org.openjfx/javafx-graphics {:mvn/version "21.0.4-ea+1"}
+        }
  :aliases
- {:dev
+ {:c-libs
+  {:jvm-opts ["-Djava.library.path=/usr/lib/x86_64-linux-gnu/"
+              "--enable-native-access=ALL-UNNAMED"]}
+  :dev
   {:jvm-opts ["-Dflowstorm.autoUpdateUI=false"
               "-Dflowstorm.callTreeUpdate=false"
               "-Dflowstorm.uiTimeoutMillis=100000"
-              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay,radio-snake.frames"
-              "-Djava.library.path=/usr/lib/x86_64-linux-gnu/"
-              "--enable-native-access=ALL-UNNAMED"
-              ]}
+              "-Dclojure.storm.instrumentSkipPrefixes=radio-snake.sdr-utils,radio-snake.samplers.file-replay,radio-snake.frames"]}
   :no-inst
   {:jvm-opts ["-Dclojure.storm.instrumentEnable=false"]}}}

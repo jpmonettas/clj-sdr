@@ -1,7 +1,6 @@
 (ns radio-snake.main
   (:require [clojure.core.async.flow :as flow]
             [clojure.core.async :as async]
-            [flow-storm.api :as fsa]
             [radio-snake.samplers.hackrf :as hackrf]
             [radio-snake.samplers.file-replay :as file-replay]
             [radio-snake.frames :as frames]
@@ -29,13 +28,16 @@
 
 (defn oscilloscope-sender
   ([] {:ins {:samples-frames-in "A samples frame"}})
-  ([{:keys [scope-id]}] {:scope-id scope-id})
-  ([{:keys [scope-id] :as state} transition]
+  ([{:keys [scope-id push-val-fn val-update-fn]}]
+   {:scope-id scope-id
+    :push-val-fn push-val-fn
+    :val-update-fn val-update-fn})
+  ([{:keys [scope-id push-val-fn] :as state} transition]
    (when (= ::flow/resume transition)
-     (fsa/data-window-push-val scope-id (frames/make-frame)))
+     (push-val-fn scope-id (frames/make-frame)))
    state)
-  ([{:keys [scope-id] :as state} _ch-id samples-frame]
-   (fsa/data-window-val-update scope-id samples-frame)
+  ([{:keys [scope-id val-update-fn] :as state} _ch-id samples-frame]
+   (val-update-fn scope-id samples-frame)
    state))
 
 (defn snake-runner
@@ -80,12 +82,14 @@
                new-speed (conj [:ticks-speed-out [new-speed]]))])))
 
 
-(defn rf-snake-main [{:keys [mocked-samples scopes]}]
+(defn rf-snake-main [{:keys [mocked-samples scopes] :or {scopes #{}}}]
   (let [hrf-samp-rate 2e6
         hrf-center-freq 629700000
         dst-samp-rate 200e3
         *running (atom true)
-
+        [push-val-fn val-update-fn] (when-not (empty? scopes)
+                                      [(requiring-resolve 'flow-storm.api/data-window-push-val)
+                                       (requiring-resolve 'flow-storm.api/data-window-val-update)])
         {:keys [in-ch start-fn stop-fn]}
         (if mocked-samples
           (file-replay/file-replay-block mocked-samples
@@ -148,16 +152,20 @@
                                                  :args {:redraw-game-fn redraw-game}}}
                          (scopes :frame-source) (assoc :frame-source-scope
                                                        {:proc (flow/process oscilloscope-sender {:workload :io})
-                                                        :args {:scope-id :frame-source-scope}})
+                                                        :args {:scope-id :frame-source-scope
+                                                               :push-val-fn push-val-fn :val-update-fn val-update-fn}})
                          (scopes :am-demod) (assoc :am-demod-scope
                                                    {:proc (flow/process oscilloscope-sender {:workload :io})
-                                                    :args {:scope-id :am-demod-scope}})
+                                                    :args {:scope-id :am-demod-scope
+                                                           :push-val-fn push-val-fn :val-update-fn val-update-fn}})
                          (scopes :burst-splitter) (assoc :burst-splitter-scope
                                                    {:proc (flow/process oscilloscope-sender {:workload :io})
-                                                    :args {:scope-id :burst-splitter-scope}})
+                                                    :args {:scope-id :burst-splitter-scope
+                                                           :push-val-fn push-val-fn :val-update-fn val-update-fn}})
                          (scopes :normalizer) (assoc :normalizer-scope
                                                    {:proc (flow/process oscilloscope-sender {:workload :io})
-                                                    :args {:scope-id :normalizer-scope}}))
+                                                    :args {:scope-id :normalizer-scope
+                                                           :push-val-fn push-val-fn :val-update-fn val-update-fn}}))
                        :conns conns})]
 
     (flow/start  system-graph)
@@ -173,4 +181,5 @@
 
 
 (defn -main [& _args]
-  (rf-snake-main {}))
+  (let [{:keys [start-fn]} (rf-snake-main {})]
+    (start-fn)))
