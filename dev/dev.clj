@@ -5,29 +5,23 @@
             [flow-storm.runtime.values :as rt-values])
   (:import [radio_snake.frames SamplesFrame]))
 
-(extend-protocol rt-values/ScopeFrameP
-
-  SamplesFrame
-  (frame-samp-rate [fr] (:samp-rate fr))
-  (frame-samples [fr] (:samples fr)))
-
-(defmethod print-method SamplesFrame [^SamplesFrame sf ^java.io.Writer w]
-  (.write w (str "Samp rate: " (rt-values/frame-samp-rate sf) ", Samples: " (count (rt-values/frame-samples sf)))))
-
-
 (comment
 
-  (do
-    (let [{:keys [start-fn stop-fn]} (main/rf-snake-main
-                                      {;; :mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
-                                       :scopes #{#_:frame-source
-                                                 #_:am-demod
-                                                 #_:burst-splitter
-                                                 #_:normalizer}})]
-      (def start start-fn)
-      (def stop stop-fn ))
+  (let [{:keys [start-fn stop-fn]} (main/rf-snake-main
+                                    {:mocked-samples "/home/jmonetta/my-projects/radio-snake/gnu_radio/remote_200k.samples"
+                                     :scopes #{#_:frame-source
+                                               #_:am-demod
+                                               #_:burst-splitter
+                                               #_:normalizer}})]
+    (start-fn)
+    (def stop stop-fn))
 
-    (start))
+  (stop)
+
+
+  )
+
+(comment
 
   (do
     (let [{:keys [start-fn stop-fn]} (main/gnu-radio)]
@@ -37,6 +31,7 @@
     (start))
 
   (stop)
+
   )
 
 (comment
@@ -65,3 +60,12 @@
   (frames/make-frame)
 
   )
+
+(extend-protocol rt-values/ScopeFrameP
+
+  SamplesFrame
+  (frame-samp-rate [fr] (:samp-rate fr))
+  (frame-samples [fr] (:samples fr)))
+
+(defmethod print-method SamplesFrame [^SamplesFrame sf ^java.io.Writer w]
+  (.write w (str "Samp rate: " (rt-values/frame-samp-rate sf) ", Samples: " (count (rt-values/frame-samples sf)))))

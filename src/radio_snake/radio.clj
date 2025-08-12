@@ -48,8 +48,8 @@
        :outs {:samples-frames-out "SamplesFrame objects containing an amiplitude demodulated signal"}})
   ([_] {})
   ([state _] state)
-  ([state _ch-id {:keys [samples samp-rate]}]
-   (let [demod-samples (into [] (map (fn [s] (frames/amplitude s))) samples)]
+  ([state _ch-id {:keys [samp-rate] :as frame}]
+   (let [demod-samples (into [] (map (fn [s] (frames/amplitude s))) (:samples frame))]
      [state [[:samples-frames-out [(frames/make-frame samp-rate demod-samples)]]]])))
 
 (defn normalizer
